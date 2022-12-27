@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
+  <Identity Name="Blusk.XSOverlayNotifier" Version="1.0.0.0" Publisher="CN=Blusk"
+    ProcessorArchitecture="x64" />
+  <Properties>
+    <DisplayName>XSOverlay Notifier</DisplayName>
+    <PublisherDisplayName>Blusk</PublisherDisplayName>
+    <Description>Sends all windows notifications to XSOverlay</Description>
+    <Logo>images\icon.png</Logo>
+  </Properties>
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.14316.0"
+      MaxVersionTested="10.0.15063.0" />
+  </Dependencies>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+  <Applications>
+    <Application Id="XSOverlayNotifier" Executable="xsoverlay_notifier.exe"
+      EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        BackgroundColor="#464646"
+        DisplayName="XSOverlay Notifier"
+        Square150x150Logo="images\icon.png"
+        Square44x44Logo="images\small_icon.png"
+        Description="Sends all windows notifications to XSOverlay" />
+    </Application>
+  </Applications>
+</Package>
