@@ -7,3 +7,5 @@ One-liner to install and get it running (Requires administrator privileges):
 ```
 Start-Process powershell.exe -Verb runas -ArgumentList '-Command iex (iwr https://github.com/bluskript/xsoverlay-notifier/releases/download/latest/install.ps1).content'
 ```
+
+If you want to launch the notifier any time in the future, this adds an item to the Windows start menu as well so you should launch it from there.
