@@ -45,7 +45,7 @@ pub async fn xsoverlay_notifier(
         .context("Failed to connect to XSOverlay Notification Daemon")?;
     while let Some(msg) = rx.recv().await {
         println!("Sending notification from {}", msg.sourceApp);
-        let data = json::to_string(&XSOverlayMessage::default());
+        let data = json::to_string(&msg);
         socket.send(data.as_bytes()).await?;
     }
     Ok(())
