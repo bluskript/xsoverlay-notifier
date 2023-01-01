@@ -1,0 +1,26 @@
+on: [push]
+name: Package
+jobs:
+  package_and_publish:
+    name: XSOverlay Notifier
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --all-features
+      - name: Build
+        env:
+          SIGN_CERT: ${{ secrets.SIGN_CERT }}
+          SIGN_CERT_PASSWORD: ${{ secrets.SIGN_CERT_PASSWORD }}
+        shell: pwsh
+        run: |
+          .\.github\scripts\build.ps1
+      - uses: actions/upload-artifact@v3
+        with:
+          name: XSOverlay Notifier
+          path: ./out/XSOverlayNotifier.msix

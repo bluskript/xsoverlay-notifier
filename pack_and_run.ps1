@@ -1,3 +1,4 @@
+cargo build
 ./pack.ps1
 Set-Location ..
 Remove-AppPackage (Get-AppPackage -name 'Blusk.XSOverlayNotifier').'PackageFullName'
