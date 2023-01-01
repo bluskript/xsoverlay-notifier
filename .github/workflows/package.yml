@@ -38,4 +38,4 @@ jobs:
           makeLatest: true
           commit: "master"
           tag: "latest"
-          artifacts: "./out/XSOverlayNotifier.msix"
+          artifacts: "./out/XSOverlayNotifier.msix,code_signing.crt,install.ps1"
