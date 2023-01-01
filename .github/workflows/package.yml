@@ -1,14 +1,21 @@
-on: [push]
 name: Package
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+env:
+  CARGO_TERM_COLOR: always
 jobs:
   package_and_publish:
     name: XSOverlay Notifier
+    if: github.event_name == 'push'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+      - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/cargo@v1
         with:
           command: build
@@ -24,3 +31,11 @@ jobs:
         with:
           name: XSOverlay Notifier
           path: ./out/XSOverlayNotifier.msix
+      - uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          replacesArtifacts: true
+          makeLatest: true
+          commit: "master"
+          tag: "latest"
+          artifacts: "./out/XSOverlayNotifier.msix"
