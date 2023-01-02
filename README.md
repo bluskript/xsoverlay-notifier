@@ -9,3 +9,5 @@ Start-Process powershell.exe -Verb runas -ArgumentList '-Command iex ([System.Te
 ```
 
 If you want to launch the notifier any time in the future, this adds an item to the Windows start menu as well so you should launch it from there.
+
+https://user-images.githubusercontent.com/52386117/210190106-17c0cb01-8f35-4135-9db9-68f06e6400ec.mp4
