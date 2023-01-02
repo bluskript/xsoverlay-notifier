@@ -82,7 +82,7 @@ pub async fn notif_to_message(notif: UserNotification) -> anyhow::Result<XSOverl
     })
 }
 
-pub async fn notification_listener(tx: UnboundedSender<XSOverlayMessage>) -> anyhow::Result<()> {
+pub async fn notification_listener(tx: &UnboundedSender<XSOverlayMessage>) -> anyhow::Result<()> {
     let listener = UserNotificationListener::Current()
         .context("failed to initialize user notification listener")?;
     println!("Requesting notification access");
@@ -117,14 +117,21 @@ pub async fn notification_listener(tx: UnboundedSender<XSOverlayMessage>) -> any
         ))
         .context("failed to register notification change handler")?;
     while let Some(notif_id) = new_notif_rx.recv().await {
-        let notif = listener
-            .GetNotification(notif_id)
-            .context(format!("failed to get notification {notif_id}"))?;
-        let msg = notif_to_message(notif).await;
-        match msg {
-            Ok(msg) => tx.send(msg)?,
-            Err(e) => println!("Failed to convert notification to XSOverlay message: {e}"),
+        if let Err(e) = async {
+            let notif = listener
+                .GetNotification(notif_id)
+                .context(format!("failed to get notification {notif_id}"))?;
+            let msg = notif_to_message(notif).await;
+            match msg {
+                Ok(msg) => tx.send(msg)?,
+                Err(e) => println!("Failed to convert notification to XSOverlay message: {e}"),
+            }
+            anyhow::Ok(())
         }
+        .await
+        {
+            println!("Failed to process notification: {e}");
+        };
     }
     Ok(())
 }

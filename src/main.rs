@@ -20,9 +20,17 @@ async fn start() -> anyhow::Result<()> {
     let Args { host, port } = Args::parse();
     let (tx, mut rx) = mpsc::unbounded_channel();
     tokio::spawn(async move {
-        xsoverlay_notifier(host, port, &mut rx).await.unwrap();
+        loop {
+            let res = xsoverlay_notifier(&host, port, &mut rx).await;
+            println!("XSOverlay notification worker died unexpectedly: {:?}", res);
+            println!("Restarting worker");
+        }
     });
-    notification_listener(tx).await?;
+    loop {
+        let res = notification_listener(&tx).await;
+        println!("Windows notification listener died unexpectedly: {:?}", res);
+        println!("Restarting listener");
+    }
     Ok(())
 }
 

@@ -31,7 +31,7 @@ pub struct XSOverlayMessage {
 }
 
 pub async fn xsoverlay_notifier(
-    host: String,
+    host: &String,
     port: usize,
     rx: &mut mpsc::UnboundedReceiver<XSOverlayMessage>,
 ) -> anyhow::Result<()> {
@@ -46,7 +46,10 @@ pub async fn xsoverlay_notifier(
     while let Some(msg) = rx.recv().await {
         println!("Sending notification from {}", msg.sourceApp);
         let data = json::to_string(&msg);
-        socket.send(data.as_bytes()).await?;
+        socket
+            .send(data.as_bytes())
+            .await
+            .context("Failed to send notification to XSOverlay UDP socket")?;
     }
     Ok(())
 }
