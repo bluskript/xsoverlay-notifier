@@ -1,45 +1,46 @@
-use std::path::Path;
-
-use crate::tui::{start_tui, Tui};
 use anyhow::Context;
 use clap::CommandFactory;
 use config::NotifierConfig;
+use directories::ProjectDirs;
 use notif_handling::notification_listener;
 use tokio::{
-    fs::File,
+    fs::{create_dir_all, File},
     io::AsyncWriteExt,
-    sync::{mpsc, watch},
+    sync::mpsc,
 };
 use twelf::Layer;
 use xsoverlay::xsoverlay_notifier;
 
 pub mod config;
 pub mod notif_handling;
-pub mod tui;
 pub mod xsoverlay;
 
 async fn start() -> anyhow::Result<()> {
-    tui_logger::init_logger(log::LevelFilter::Trace).unwrap();
-    tui_logger::set_default_level(log::LevelFilter::Trace);
+    pretty_env_logger::formatted_builder()
+        .filter_level(log::LevelFilter::Debug)
+        .init();
     let matches = NotifierConfig::command().get_matches();
-    if !Path::new("./config.toml").exists() {
-        let mut file = File::create("./config.toml").await?;
+    let project_dirs = ProjectDirs::from("dev", "blusk", "xsoverlay_notifier")
+        .ok_or_else(|| anyhow::anyhow!("project dir lookup failed"))?;
+    let config_file_path = project_dirs.config_dir().join("./config.toml");
+    if !config_file_path.exists() {
+        create_dir_all(project_dirs.config_dir()).await?;
+        let mut file = File::create(config_file_path.clone()).await?;
         file.write_all(toml::to_string_pretty(&NotifierConfig::default())?.as_bytes())
             .await?;
     }
     let config = NotifierConfig::with_layers(&[
-        Layer::Toml("./config.toml".into()),
+        Layer::Toml(config_file_path),
         Layer::Env(Some("XSNOTIF_".into())),
         Layer::Clap(matches),
     ])
     .context("failed to parse config")?;
     let (tx, mut rx) = mpsc::unbounded_channel();
-    let (config_tx, config_rx) = watch::channel(config);
     {
-        let mut config_rx = config_rx.clone();
+        let config = config.clone();
         tokio::spawn(async move {
             loop {
-                let res = xsoverlay_notifier(&mut rx, &mut config_rx).await;
+                let res = xsoverlay_notifier(&mut rx, &config.host, config.port).await;
                 log::error!(
                     "XSOverlay notification sender died unexpectedly: {:?}, restarting sender",
                     res
@@ -47,18 +48,10 @@ async fn start() -> anyhow::Result<()> {
             }
         });
     }
-    tokio::task::spawn_blocking(|| {
-        let local = tokio::task::LocalSet::new();
-        tokio::runtime::Handle::current().block_on(local.run_until(async move {
-            loop {
-                let res = notification_listener(&tx).await;
-                log::error!("Windows notification listener died unexpectedly: {:?}", res);
-            }
-        }));
-    });
-    let mut tui = Tui::default();
-    start_tui(&mut tui, config_tx, config_rx).await?;
-    Ok(())
+    loop {
+        let res = notification_listener(&config, &tx).await;
+        log::error!("Windows notification listener died unexpectedly: {:?}", res);
+    }
 }
 
 #[tokio::main]

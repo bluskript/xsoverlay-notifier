@@ -1,9 +1,8 @@
 use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumIter};
 use twelf::config;
 
-#[derive(Serialize, Deserialize, Debug, EnumIter, Display, Clone, Copy, Default, ValueEnum)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, ValueEnum)]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationStrategy {
     #[default]
@@ -11,7 +10,7 @@ pub enum NotificationStrategy {
     Polling,
 }
 
-#[derive(Debug, Clone, Default, Parser, Serialize)]
+#[derive(Debug, Clone, Parser, Serialize)]
 #[command(author, version, about, long_about = None)]
 #[config]
 pub struct NotifierConfig {
@@ -22,5 +21,16 @@ pub struct NotifierConfig {
     #[arg(short, long, value_enum, default_value_t = NotificationStrategy::Listener)]
     pub notification_strategy: NotificationStrategy,
     #[arg(long, default_value_t = 250)]
-    pub polling_rate: i32,
+    pub polling_rate: u64,
+}
+
+impl Default for NotifierConfig {
+    fn default() -> Self {
+        Self {
+            port: 42069,
+            host: "localhost".into(),
+            notification_strategy: NotificationStrategy::Listener,
+            polling_rate: 250,
+        }
+    }
 }

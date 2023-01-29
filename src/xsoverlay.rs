@@ -50,23 +50,17 @@ async fn connect_udp(host: &String, port: usize) -> anyhow::Result<UdpSocket> {
 
 pub async fn xsoverlay_notifier(
     rx: &mut mpsc::UnboundedReceiver<XSOverlayMessage>,
-    config_rx: &mut watch::Receiver<NotifierConfig>,
+    host: &String,
+    port: usize,
 ) -> anyhow::Result<()> {
-    let NotifierConfig { host, port, .. } = config_rx.borrow().to_owned();
-    let mut socket = connect_udp(&host, port).await?;
-    select! {
-        Some(msg) = rx.recv() => {
-            println!("Sending notification from {}", msg.sourceApp);
-            let data = serde_json::to_string(&msg)?;
-            socket
+    let socket = connect_udp(&host, port).await?;
+    while let Some(msg) = rx.recv().await {
+        println!("Sending notification from {}", msg.sourceApp);
+        let data = serde_json::to_string(&msg)?;
+        socket
             .send(data.as_bytes())
             .await
             .context("Failed to send notification to XSOverlay UDP socket")?;
-        },
-        Ok(_) = config_rx.changed() => {
-            let NotifierConfig { host, port, .. } = config_rx.borrow().to_owned();
-            socket = connect_udp(&host, port).await?;
-        }
     }
     Ok(())
 }

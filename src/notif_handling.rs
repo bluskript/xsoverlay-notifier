@@ -11,10 +11,7 @@ use tokio::{
 use windows::{
     ApplicationModel::AppDisplayInfo,
     Foundation::{Size, TypedEventHandler},
-    Storage::Streams::{
-        Buffer, DataReader, IBuffer, IInputStream, IRandomAccessStreamWithContentType,
-        InputStreamOptions,
-    },
+    Storage::Streams::{DataReader, IRandomAccessStreamWithContentType},
     UI::Notifications::{
         KnownNotificationBindings,
         Management::{UserNotificationListener, UserNotificationListenerAccessStatus},
@@ -23,6 +20,7 @@ use windows::{
     },
 };
 
+use crate::config::{NotificationStrategy, NotifierConfig};
 use crate::xsoverlay::XSOverlayMessage;
 
 async fn read_logo(display_info: AppDisplayInfo) -> anyhow::Result<Vec<u8>> {
@@ -89,9 +87,10 @@ pub async fn notif_to_message(notif: UserNotification) -> anyhow::Result<XSOverl
     })
 }
 
-pub async fn fallback_notification_handler(
+pub async fn polling_notification_handler(
     listener: UserNotificationListener,
     tx: &UnboundedSender<XSOverlayMessage>,
+    polling_rate: u64,
 ) -> Result<()> {
     let mut prev_notifs: Option<Vec<UserNotification>> = None;
     loop {
@@ -99,11 +98,15 @@ pub async fn fallback_notification_handler(
             .GetNotificationsAsync(NotificationKinds::Toast)?
             .await?;
         if let Some(prev_notifs) = prev_notifs {
-            for notif in notifs
-                .clone()
-                .into_iter()
-                .filter(|notif| prev_notifs.contains(notif))
-            {
+            for notif in notifs.clone().into_iter().filter(|notif| {
+                prev_notifs
+                    .iter()
+                    .find(|prev_notif| {
+                        notif.Id().unwrap_or_default() == prev_notif.Id().unwrap_or_default()
+                    })
+                    .is_none()
+            }) {
+                log::info!("handling new notification");
                 let msg = notif_to_message(notif).await;
                 match msg {
                     Ok(msg) => tx.send(msg)?,
@@ -112,11 +115,11 @@ pub async fn fallback_notification_handler(
             }
         }
         prev_notifs = Some(notifs.into_iter().collect::<Vec<UserNotification>>());
-        sleep(Duration::from_millis(300)).await;
+        sleep(Duration::from_millis(polling_rate)).await;
     }
 }
 
-pub async fn normal_notification_handler(
+pub async fn listening_notification_handler(
     listener: UserNotificationListener,
     tx: &UnboundedSender<XSOverlayMessage>,
 ) -> Result<()> {
@@ -126,10 +129,10 @@ pub async fn normal_notification_handler(
             move |_sender, args: &Option<UserNotificationChangedEventArgs>| {
                 if let Some(event) = args {
                     if event.ChangeKind()? == UserNotificationChangedKind::Added {
-                        println!("handling new notification event");
+                        log::info!("handling new notification event");
                         let id = event.UserNotificationId()?;
                         if let Err(e) = new_notif_tx.send(id) {
-                            println!("Error sending ID of new notification: {e}");
+                            log::error!("Error sending ID of new notification: {e}");
                         }
                     };
                 }
@@ -151,13 +154,16 @@ pub async fn normal_notification_handler(
         }
         .await
         {
-            println!("Failed to process notification: {e}");
+            log::error!("Failed to process notification: {e}");
         };
     }
     Ok(())
 }
 
-pub async fn notification_listener(tx: &UnboundedSender<XSOverlayMessage>) -> anyhow::Result<()> {
+pub async fn notification_listener(
+    config: &NotifierConfig,
+    tx: &UnboundedSender<XSOverlayMessage>,
+) -> anyhow::Result<()> {
     let listener = UserNotificationListener::Current()
         .context("failed to initialize user notification listener")?;
     info!("Requesting notification access");
@@ -173,8 +179,12 @@ pub async fn notification_listener(tx: &UnboundedSender<XSOverlayMessage>) -> an
         ));
     }
     info!("Notification access granted");
-    normal_notification_handler(listener, tx).await?;
-    Ok(())
+    match config.notification_strategy {
+        NotificationStrategy::Listener => listening_notification_handler(listener, tx).await,
+        NotificationStrategy::Polling => {
+            polling_notification_handler(listener, tx, config.polling_rate).await
+        }
+    }
 }
 
 async fn read_stream_to_bytes(
