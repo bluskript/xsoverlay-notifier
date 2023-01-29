@@ -10,4 +10,19 @@ Start-Process powershell.exe -Verb runas -ArgumentList '-Command iex ([System.Te
 
 If you want to launch the notifier any time in the future, this adds an item to the Windows start menu as well so you should launch it from there.
 
+## Configuration
+
+Settings for the notifier are stored in `%APPDATA%\blusk\xsoverlay_notifier\config\config.toml`. Here is some brief documentation on each option in the config:
+
+```toml
+# Port that xsoverlay is listening on
+port = 42069
+# The hostname that xsoverlay is listening on
+host = "localhost"
+# The notification strategy - either "listener" or "polling"
+notification_strategy = "polling"
+# The rate at which the polling strategy refreshes notifications
+polling_rate = 250
+```
+
 https://user-images.githubusercontent.com/52386117/210190106-17c0cb01-8f35-4135-9db9-68f06e6400ec.mp4

@@ -26,7 +26,7 @@ async fn start() -> anyhow::Result<()> {
     if !config_file_path.exists() {
         create_dir_all(project_dirs.config_dir()).await?;
         let mut file = File::create(config_file_path.clone()).await?;
-        file.write_all(toml::to_string_pretty(&NotifierConfig::default())?.as_bytes())
+        file.write_all(include_bytes!("./default_config.toml"))
             .await?;
     }
     let config = NotifierConfig::with_layers(&[

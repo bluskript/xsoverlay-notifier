@@ -1,0 +1,8 @@
+# Port that xsoverlay is listening on
+port = 42069
+# The hostname that xsoverlay is listening on
+host = "localhost"
+# The notification strategy - either "listener" or "polling"
+notification_strategy = "polling"
+# The rate at which the polling strategy refreshes notifications
+polling_rate = 250
