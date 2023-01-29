@@ -1,10 +1,16 @@
+use std::time::Duration;
+
+use anyhow::Result;
 use anyhow::{anyhow, Context};
 use base64::encode;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
+use log::info;
+use tokio::{
+    sync::mpsc::{unbounded_channel, UnboundedSender},
+    time::sleep,
+};
 use windows::{
     ApplicationModel::AppDisplayInfo,
-    Foundation::{GuidHelper, MemoryBuffer, Size, TypedEventHandler},
-    Graphics::Imaging::BitmapEncoder,
+    Foundation::{Size, TypedEventHandler},
     Storage::Streams::{
         Buffer, DataReader, IBuffer, IInputStream, IRandomAccessStreamWithContentType,
         InputStreamOptions,
@@ -12,7 +18,8 @@ use windows::{
     UI::Notifications::{
         KnownNotificationBindings,
         Management::{UserNotificationListener, UserNotificationListenerAccessStatus},
-        UserNotification, UserNotificationChangedEventArgs, UserNotificationChangedKind,
+        NotificationKinds, UserNotification, UserNotificationChangedEventArgs,
+        UserNotificationChangedKind,
     },
 };
 
@@ -82,23 +89,37 @@ pub async fn notif_to_message(notif: UserNotification) -> anyhow::Result<XSOverl
     })
 }
 
-pub async fn notification_listener(tx: &UnboundedSender<XSOverlayMessage>) -> anyhow::Result<()> {
-    let listener = UserNotificationListener::Current()
-        .context("failed to initialize user notification listener")?;
-    println!("Requesting notification access");
-    let access_status = listener
-        .RequestAccessAsync()
-        .context("Notification access request failed")?
-        .await
-        .context("Notification access request failed")?;
-    if access_status != UserNotificationListenerAccessStatus::Allowed {
-        return Err(anyhow!(
-            "Notification access was not granted, was instead {:?}",
-            access_status
-        ));
+pub async fn fallback_notification_handler(
+    listener: UserNotificationListener,
+    tx: &UnboundedSender<XSOverlayMessage>,
+) -> Result<()> {
+    let mut prev_notifs: Option<Vec<UserNotification>> = None;
+    loop {
+        let notifs = listener
+            .GetNotificationsAsync(NotificationKinds::Toast)?
+            .await?;
+        if let Some(prev_notifs) = prev_notifs {
+            for notif in notifs
+                .clone()
+                .into_iter()
+                .filter(|notif| prev_notifs.contains(notif))
+            {
+                let msg = notif_to_message(notif).await;
+                match msg {
+                    Ok(msg) => tx.send(msg)?,
+                    Err(e) => println!("Failed to convert notification to XSOverlay message: {e}"),
+                }
+            }
+        }
+        prev_notifs = Some(notifs.into_iter().collect::<Vec<UserNotification>>());
+        sleep(Duration::from_millis(300)).await;
     }
-    println!("Notification access granted");
+}
 
+pub async fn normal_notification_handler(
+    listener: UserNotificationListener,
+    tx: &UnboundedSender<XSOverlayMessage>,
+) -> Result<()> {
     let (new_notif_tx, mut new_notif_rx) = unbounded_channel::<u32>();
     listener
         .NotificationChanged(&TypedEventHandler::new(
@@ -133,6 +154,26 @@ pub async fn notification_listener(tx: &UnboundedSender<XSOverlayMessage>) -> an
             println!("Failed to process notification: {e}");
         };
     }
+    Ok(())
+}
+
+pub async fn notification_listener(tx: &UnboundedSender<XSOverlayMessage>) -> anyhow::Result<()> {
+    let listener = UserNotificationListener::Current()
+        .context("failed to initialize user notification listener")?;
+    info!("Requesting notification access");
+    let access_status = listener
+        .RequestAccessAsync()
+        .context("Notification access request failed")?
+        .await
+        .context("Notification access request failed")?;
+    if access_status != UserNotificationListenerAccessStatus::Allowed {
+        return Err(anyhow!(
+            "Notification access was not granted, was instead {:?}",
+            access_status
+        ));
+    }
+    info!("Notification access granted");
+    normal_notification_handler(listener, tx).await?;
     Ok(())
 }
 

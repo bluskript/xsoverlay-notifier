@@ -1,6 +1,12 @@
 use anyhow::Context;
-use miniserde::{json, Deserialize, Serialize};
-use tokio::{net::UdpSocket, sync::mpsc};
+use serde::{Deserialize, Serialize};
+use tokio::{
+    net::UdpSocket,
+    select,
+    sync::{mpsc, watch},
+};
+
+use crate::config::NotifierConfig;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct XSOverlayMessage {
@@ -30,11 +36,7 @@ pub struct XSOverlayMessage {
     pub sourceApp: String,
 }
 
-pub async fn xsoverlay_notifier(
-    host: &String,
-    port: usize,
-    rx: &mut mpsc::UnboundedReceiver<XSOverlayMessage>,
-) -> anyhow::Result<()> {
+async fn connect_udp(host: &String, port: usize) -> anyhow::Result<UdpSocket> {
     // using port 0 so the OS allocates a available port automatically
     let socket = UdpSocket::bind("0.0.0.0:0")
         .await
@@ -43,13 +45,28 @@ pub async fn xsoverlay_notifier(
         .connect(format!("{host}:{port}"))
         .await
         .context("Failed to connect to XSOverlay Notification Daemon")?;
-    while let Some(msg) = rx.recv().await {
-        println!("Sending notification from {}", msg.sourceApp);
-        let data = json::to_string(&msg);
-        socket
+    Ok(socket)
+}
+
+pub async fn xsoverlay_notifier(
+    rx: &mut mpsc::UnboundedReceiver<XSOverlayMessage>,
+    config_rx: &mut watch::Receiver<NotifierConfig>,
+) -> anyhow::Result<()> {
+    let NotifierConfig { host, port, .. } = config_rx.borrow().to_owned();
+    let mut socket = connect_udp(&host, port).await?;
+    select! {
+        Some(msg) = rx.recv() => {
+            println!("Sending notification from {}", msg.sourceApp);
+            let data = serde_json::to_string(&msg)?;
+            socket
             .send(data.as_bytes())
             .await
             .context("Failed to send notification to XSOverlay UDP socket")?;
+        },
+        Ok(_) = config_rx.changed() => {
+            let NotifierConfig { host, port, .. } = config_rx.borrow().to_owned();
+            socket = connect_udp(&host, port).await?;
+        }
     }
     Ok(())
 }
