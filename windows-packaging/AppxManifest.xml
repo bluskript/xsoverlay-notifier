@@ -24,6 +24,7 @@
   </Dependencies>
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
     <!-- <uap3:Capability Name="userNotificationListener" /> -->
   </Capabilities>
   <Applications>
