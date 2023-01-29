@@ -23,11 +23,13 @@ async fn start() -> anyhow::Result<()> {
     let project_dirs = ProjectDirs::from("dev", "blusk", "xsoverlay_notifier")
         .ok_or_else(|| anyhow::anyhow!("project dir lookup failed"))?;
     let config_file_path = project_dirs.config_dir().join("./config.toml");
+    log::info!("checking if config file exists...");
     if !config_file_path.exists() {
         create_dir_all(project_dirs.config_dir()).await?;
         let mut file = File::create(config_file_path.clone()).await?;
         file.write_all(include_bytes!("./default_config.toml"))
             .await?;
+        log::info!("default config written to {:?}", config_file_path);
     }
     let config = NotifierConfig::with_layers(&[
         Layer::Toml(config_file_path),

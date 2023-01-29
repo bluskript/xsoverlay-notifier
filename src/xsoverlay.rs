@@ -6,8 +6,6 @@ use tokio::{
     sync::{mpsc, watch},
 };
 
-use crate::config::NotifierConfig;
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct XSOverlayMessage {
     /// 1 = Notification Popup, 2 = MediaPlayer Information, will be extended later on.
