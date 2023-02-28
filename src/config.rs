@@ -22,6 +22,9 @@ pub struct NotifierConfig {
     pub notification_strategy: NotificationStrategy,
     #[arg(long, default_value_t = 250)]
     pub polling_rate: u64,
+
+    #[arg(long, default_value_t = 2.0)]
+    pub timeout: f32,
 }
 
 impl Default for NotifierConfig {
@@ -31,6 +34,7 @@ impl Default for NotifierConfig {
             host: "localhost".into(),
             notification_strategy: NotificationStrategy::Listener,
             polling_rate: 250,
+            timeout: 2.0,
         }
     }
 }
