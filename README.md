@@ -23,6 +23,8 @@ host = "localhost"
 notification_strategy = "polling"
 # The rate at which the polling strategy refreshes notifications
 polling_rate = 250
+# The duration the notification shows up on screen
+timeout = 2
 ```
 
 https://user-images.githubusercontent.com/52386117/210190106-17c0cb01-8f35-4135-9db9-68f06e6400ec.mp4
