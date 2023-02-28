@@ -13,7 +13,7 @@ pub struct XSOverlayMessage {
     /// Only used for Media Player, changes the icon on the wrist.
     pub index: i32,
     /// How long the notification will stay on screen for in seconds
-    pub timeout: f32,
+    pub timeout: f32 = 7.0;
     /// Height notification will expand to if it has content other than a title. Default is 175
     pub height: f32,
     /// Opacity of the notification, to make it less intrusive. Setting to 0 will set to 1.
