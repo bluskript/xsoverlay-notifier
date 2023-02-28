@@ -74,7 +74,7 @@ pub async fn notif_to_message(notif: UserNotification) -> anyhow::Result<XSOverl
     Ok(XSOverlayMessage {
         messageType: 1,
         index: 0,
-        timeout: 0.5,
+        timeout: 7,
         height: 175.,
         opacity: 1.,
         volume: 0.7,
